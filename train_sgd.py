@@ -231,13 +231,14 @@ def validate(val_loader, test_loader, model, criterion):
     Run evaluation
     """
     batch_time = AverageMeter()
-    losses = AverageMeter()
+    nlls = AverageMeter()
+    cnlls = AverageMeter()
     accs = AverageMeter()
     eces = AverageMeter()
     # switch to evaluate mode
-    model.eval()
-
     end = time.time()
+    model.eval()
+    temperature_scaler = util.tune_temperature(model, val_loader)
     with torch.no_grad():
         for i, (input, target) in enumerate(test_loader):
             target = target.cuda()
@@ -250,15 +251,18 @@ def validate(val_loader, test_loader, model, criterion):
             # compute output
             ece_criterion = util._ECELoss(15).cuda()
 
-            output = model(input_var)
-            loss = criterion(output, target_var)
-            ece = ece_criterion(output, target_var)
-            output = output.float()
-            loss = loss.float()
+            logit = model(input_var)
+            nll = criterion(logit, target_var)
+            cnll = criterion(temperature_scaler(logit), target_var)
+
+            ece = ece_criterion(logit, target_var)
+            logit = logit.float()
+            nll = nll.float()
+            cnll = cnll.float()
             ece = ece.float()
             # measure accuracy and record loss
-            acc = accuracy(output.data, target)[0]
-            losses.update(loss.item(), input.size(0))
+            acc = accuracy(logit.data, target)[0]
+            nlls.update(nll.item(), input.size(0))
             accs.update(acc.item(), input.size(0))
             eces.update(ece.item(), input.size(0))
             # measure elapsed time
@@ -266,9 +270,10 @@ def validate(val_loader, test_loader, model, criterion):
             end = time.time()
 
     print(' * ACC {acc.avg:.3f}\t'
-          'NLL {loss.avg:.4f}\t'
+          'NLL {nll.avg:.4f}\t'
+          'cNLL {cnll.avg:.4f}\t'
           'ECE {ece.avg:.3f}'
-          .format(acc=accs, loss=losses, ece=eces))
+          .format(acc=accs, nll=nlls, cnll=cnlls, ece=eces))
 
     return accs.avg
 
