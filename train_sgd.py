@@ -157,7 +157,6 @@ def main():
         prec1 = validate(test_loader, model, criterion)
 
         # remember best prec@1 and save checkpoint
-        is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
 
         if epoch > 0 and epoch % args.save_every == 0:
@@ -165,12 +164,12 @@ def main():
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, is_best, filename=os.path.join(args.save_dir, 'checkpoint.th'))
+            }, filename=os.path.join(args.save_dir, 'checkpoint.th'))
 
         save_checkpoint({
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-        }, is_best, filename=os.path.join(args.save_dir, 'model.th'))
+        }, filename=os.path.join(args.save_dir, 'model.th'))
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
