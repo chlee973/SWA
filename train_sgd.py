@@ -12,6 +12,8 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import resnet
+import util
+from torch.utils.data import DataLoader, Subset, random_split
 
 model_names = sorted(name for name in resnet.__dict__
     if name.islower() and not name.startswith("__")
@@ -88,17 +90,30 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-    train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(32, 4),
+    train_dataset = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
-        ]), download=True),
-        batch_size=args.batch_size, shuffle=True,
+        ]), download=True)
+    total_len = len(train_dataset)
+    train_len = int(0.9 * total_len)
+    valid_len = total_len - train_len
+
+    new_train_dataset, val_dataset = random_split(
+        train_dataset,
+        [train_len, valid_len],
+        generator=torch.Generator().manual_seed(42)
+    )
+    train_loader = torch.utils.data.DataLoader(
+        new_train_dataset,
+        batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True)
+    
+    test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(root='./data', train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
@@ -128,7 +143,7 @@ def main():
 
 
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(test_loader, model, criterion)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -139,7 +154,7 @@ def main():
         lr_scheduler.step()
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
+        prec1 = validate(test_loader, model, criterion)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -165,7 +180,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
+    accs = AverageMeter()
 
     # switch to train mode
     model.train()
@@ -194,9 +209,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         output = output.float()
         loss = loss.float()
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target)[0]
+        acc = accuracy(output.data, target)[0]
         losses.update(loss.item(), input.size(0))
-        top1.update(prec1.item(), input.size(0))
+        accs.update(acc.item(), input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -207,25 +222,25 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                  'ACC {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
-                      data_time=data_time, loss=losses, top1=top1))
+                      data_time=data_time, loss=losses, acc=accs))
 
 
-def validate(val_loader, model, criterion):
+def validate(test_loader, model, criterion):
     """
     Run evaluation
     """
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
+    accs = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
 
     end = time.time()
     with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target) in enumerate(test_loader):
             target = target.cuda()
             input_var = input.cuda()
             target_var = target.cuda()
@@ -241,9 +256,9 @@ def validate(val_loader, model, criterion):
             loss = loss.float()
 
             # measure accuracy and record loss
-            prec1 = accuracy(output.data, target)[0]
+            acc = accuracy(output.data, target)[0]
             losses.update(loss.item(), input.size(0))
-            top1.update(prec1.item(), input.size(0))
+            accs.update(acc.item(), input.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -253,16 +268,16 @@ def validate(val_loader, model, criterion):
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                          i, len(val_loader), batch_time=batch_time, loss=losses,
-                          top1=top1))
+                      'ACC {acc.val:.3f} ({acc.avg:.3f})'.format(
+                          i, len(test_loader), batch_time=batch_time, loss=losses,
+                          acc=accs))
 
-    print(' * Prec@1 {top1.avg:.3f}'
-          .format(top1=top1))
+    print(' * ACC {acc.avg:.3f}'
+          .format(acc=accs))
 
-    return top1.avg
+    return accs.avg
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, filename='checkpoint.pth.tar'):
     """
     Save the training model
     """
