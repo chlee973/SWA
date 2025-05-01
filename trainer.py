@@ -21,10 +21,10 @@ model_names = sorted(name for name in resnet.__dict__
 print(model_names)
 
 parser = argparse.ArgumentParser(description='Propert ResNets for CIFAR10 in pytorch')
-parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
+parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',
                     choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names) +
-                    ' (default: resnet32)')
+                    ' (default: resnet20)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
@@ -288,19 +288,23 @@ class AverageMeter(object):
 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
+    # output: [batch_size, num_class]
+    # target: [batch_size]
     maxk = max(topk)
     batch_size = target.size(0)
 
     _, pred = output.topk(maxk, 1, True, True)
+    # pred: [batch_size, maxk]
     pred = pred.t()
+    # pred: [maxk, batch_size]
     correct = pred.eq(target.view(1, -1).expand_as(pred))
-
+    # target.view(1, -1).expand_as(pred): [maxk(target이 여럿 복사된 부분), batch_size]
+    # correct: [maxk, batch_size]
     res = []
     for k in topk:
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
-
 
 if __name__ == '__main__':
     main()
