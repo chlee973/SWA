@@ -265,6 +265,7 @@ def validate(val_loader, test_loader, model, criterion):
             # measure accuracy and record loss
             acc = accuracy(logit.data, target)[0]
             nlls.update(nll.item(), input.size(0))
+            cnlls.update(cnll.item(), input.size(0))
             accs.update(acc.item(), input.size(0))
             eces.update(ece.item(), input.size(0))
             # measure elapsed time
