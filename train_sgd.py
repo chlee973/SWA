@@ -91,6 +91,8 @@ def main():
                                      std=[0.229, 0.224, 0.225])
 
     train_dataset = datasets.CIFAR10(root='./data', train=True, transform=transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
             normalize,
         ]), download=True)
