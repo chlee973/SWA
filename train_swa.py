@@ -185,7 +185,7 @@ def main():
     swa_model = copy.deepcopy(model)
 
     for epoch in range(args.exploring_epochs):
-        train_swa(train_loader, model, swa_model, criterion, optimizer, epoch)
+        train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
         update_batchnorm(swa_model, train_loader)
         acc = validate(val_loader, test_loader, model, criterion)
         best_acc= max(acc, best_acc)
