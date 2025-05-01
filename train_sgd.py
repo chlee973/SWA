@@ -265,18 +265,10 @@ def validate(val_loader, test_loader, model, criterion):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'ACC {acc.val:.3f} ({acc.avg:.3f})\t'
-                      'ECE {ece.val:.3f} ({ece.avg:.3f})'
-                      .format(
-                          i, len(test_loader), batch_time=batch_time, loss=losses,
-                          acc=accs, ece=eces))
-
-    print(' * ACC {acc.avg:.3f}'
-          .format(acc=accs))
+    print(' * ACC {acc.avg:.3f}\t'
+          'NLL {loss.avg:.4f}\t'
+          'ECE {ece.avg:.3f}'
+          .format(acc=accs, loss=losses, ece=eces))
 
     return accs.avg
 
