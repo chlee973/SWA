@@ -143,7 +143,7 @@ def main():
 
 
     if args.evaluate:
-        validate(test_loader, model, criterion)
+        validate(val_loader, test_loader, model, criterion)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -154,7 +154,7 @@ def main():
         lr_scheduler.step()
 
         # evaluate on validation set
-        prec1 = validate(test_loader, model, criterion)
+        prec1 = validate(val_loader, test_loader, model, criterion)
 
         # remember best prec@1 and save checkpoint
         best_prec1 = max(prec1, best_prec1)
@@ -226,14 +226,14 @@ def train(train_loader, model, criterion, optimizer, epoch):
                       data_time=data_time, loss=losses, acc=accs))
 
 
-def validate(test_loader, model, criterion):
+def validate(val_loader, test_loader, model, criterion):
     """
     Run evaluation
     """
     batch_time = AverageMeter()
     losses = AverageMeter()
     accs = AverageMeter()
-
+    eces = AverageMeter()
     # switch to evaluate mode
     model.eval()
 
@@ -248,17 +248,19 @@ def validate(test_loader, model, criterion):
                 input_var = input_var.half()
 
             # compute output
+            ece_criterion = util._ECELoss(15).cuda()
+
             output = model(input_var)
             loss = criterion(output, target_var)
-
+            ece = ece_criterion(output, target_var)
             output = output.float()
             loss = loss.float()
-
+            ece = ece.float()
             # measure accuracy and record loss
             acc = accuracy(output.data, target)[0]
             losses.update(loss.item(), input.size(0))
             accs.update(acc.item(), input.size(0))
-
+            eces.update(ece.item(), input.size(0))
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
@@ -267,9 +269,11 @@ def validate(test_loader, model, criterion):
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'ACC {acc.val:.3f} ({acc.avg:.3f})'.format(
+                      'ACC {acc.val:.3f} ({acc.avg:.3f})\t'
+                      'ECE {ece.val:.3f} ({ece.avg:.3f})'
+                      .format(
                           i, len(test_loader), batch_time=batch_time, loss=losses,
-                          acc=accs))
+                          acc=accs, ece=eces))
 
     print(' * ACC {acc.avg:.3f}'
           .format(acc=accs))
