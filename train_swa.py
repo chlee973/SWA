@@ -309,11 +309,11 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
                       data_time=data_time, loss=losses, acc=accs))
             
         start_iter = epoch * len(train_loader) + 1
-        n_models = start_iter // args.weight_avg_period + 1
-        if (start_iter + i)%5==0:
+        n_models = (start_iter+i) // args.weight_avg_period + 1
+        if (start_iter + i)%args.weight_avg_period==0:
             for swa_param, param in zip(swa_model.parameters(), model.parameters()):
-                swa_param.data *= n_models / (n_models + 1)
-                swa_param.data += param.data / (n_models + 1)
+                swa_param.data *= (n_models-1) / n_models
+                swa_param.data += param.data / n_models
 
 
 
