@@ -187,7 +187,8 @@ def main():
     for epoch in range(args.exploring_epochs):
         train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
         update_batchnorm(swa_model, train_loader)
-        acc = validate(val_loader, test_loader, model, criterion)
+        acc_model = validate(val_loader, test_loader, model, criterion)
+        acc = validate(val_loader, test_loader, swa_model, criterion)
         best_acc= max(acc, best_acc)
         if epoch > 0 and epoch % args.save_every == 0:
             save_checkpoint({
@@ -416,8 +417,9 @@ def accuracy(output, target, topk=(1,)):
 
 def update_batchnorm(swa_model, train_loader):
     swa_model.train()
-    for i, (input, _) in enumerate(train_loader):
-        _ = swa_model(input)
+    with torch.no_grad():
+        for i, (input, _) in enumerate(train_loader):
+            _ = swa_model(input)
 
 if __name__ == '__main__':
     main()
