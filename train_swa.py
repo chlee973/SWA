@@ -152,30 +152,39 @@ def main():
         validate(val_loader, test_loader, model, criterion)
         return
 
-    for epoch in range(args.start_epoch, args.epochs):
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(args.resume)
+            model.load_state_dict(checkpoint['state_dict'])
+            print("=> loaded checkpoint '{}'".format(args.resume))
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
+    else:
+        for epoch in range(args.start_epoch, args.epochs):
 
-        # train for one epoch
-        print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        train(train_loader, model, criterion, optimizer, epoch)
-        lr_scheduler.step()
+            # train for one epoch
+            print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
+            train(train_loader, model, criterion, optimizer, epoch)
+            lr_scheduler.step()
 
-        # evaluate on validation set
-        acc = validate(val_loader, test_loader, model, criterion)
+            # evaluate on validation set
+            acc = validate(val_loader, test_loader, model, criterion)
 
-        # remember best prec@1 and save checkpoint
-        best_acc = max(acc, best_acc)
+            # remember best prec@1 and save checkpoint
+            best_acc = max(acc, best_acc)
 
-        if epoch > 0 and epoch % args.save_every == 0:
+            if epoch > 0 and epoch % args.save_every == 0:
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                    'best_acc': best_acc,
+                }, filename=os.path.join(args.save_dir, 'checkpoint.th'))
+
             save_checkpoint({
-                'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_acc': best_acc,
-            }, filename=os.path.join(args.save_dir, 'checkpoint.th'))
-
-        save_checkpoint({
-            'state_dict': model.state_dict(),
-            'best_acc': best_acc,
-        }, filename=os.path.join(args.save_dir, 'model.th'))
+            }, filename=os.path.join(args.save_dir, 'model.th'))
     
 
     swa_optimizer = torch.optim.SGD(model.parameters(), args.lr,
