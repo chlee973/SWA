@@ -23,13 +23,6 @@ class Ensemble(nn.Module):
         # Log of average probability
         ensemble_log_prob = torch.logsumexp(log_probs, dim=0) - torch.log(torch.tensor(len(self.models), dtype=logits.dtype, device=logits.device))
         return ensemble_log_prob  # shape (B, C)
-
-    # Produce log prob (log softmax)
-    def forward(self, input):
-        logits = torch.stack([model(input) for model in self.models])
-        log_probs = torch.log_softmax(logits, dim=2)
-        ensemble_log_prob = torch.logsumexp(log_probs, dim=0)-torch.log(len(self.models))
-        return ensemble_log_prob
     
 class _ECELoss(nn.Module):
     """
