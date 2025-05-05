@@ -173,7 +173,7 @@ def validate(val_loader, test_loader, model, criterion):
           'ECE {ece.avg:.3f}'
           .format(acc=accs, nll=nlls, cnll=cnlls, ece=eces))
 
-    return 
+    return accs.avg
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
