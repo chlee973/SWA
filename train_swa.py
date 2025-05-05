@@ -137,7 +137,7 @@ def main():
 
 
     if args.evaluate:
-        validate(val_loader, test_loader, model, criterion)
+        util.validate(val_loader, test_loader, model, criterion)
         return
 
     if args.resume:
@@ -157,7 +157,7 @@ def main():
             lr_scheduler.step()
 
             # evaluate on validation set
-            acc = validate(val_loader, test_loader, model, criterion)
+            acc = util.validate(val_loader, test_loader, model, criterion)
 
             # remember best prec@1 and save checkpoint
             best_acc = max(acc, best_acc)
@@ -184,8 +184,8 @@ def main():
     for epoch in range(args.exploring_epochs):
         train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
         update_batchnorm(swa_model, train_loader)
-        acc_model = validate(val_loader, test_loader, model, criterion)
-        acc = validate(val_loader, test_loader, swa_model, criterion)
+        acc_model = util.validate(val_loader, test_loader, model, criterion)
+        acc = util.validate(val_loader, test_loader, swa_model, criterion)
         best_acc= max(acc, best_acc)
         if epoch > 0 and epoch % args.save_every == 0:
             save_checkpoint({
@@ -204,10 +204,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
     """
         Run one train epoch
     """
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    accs = AverageMeter()
+    batch_time = util.AverageMeter()
+    data_time = util.AverageMeter()
+    losses = util.AverageMeter()
+    accs = util.AverageMeter()
 
     # switch to train mode
     model.train()
@@ -236,7 +236,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         output = output.float()
         loss = loss.float()
         # measure accuracy and record loss
-        acc = accuracy(output.data, target)[0]
+        acc = util.accuracy(output.data, target)[0]
         losses.update(loss.item(), input.size(0))
         accs.update(acc.item(), input.size(0))
 
@@ -257,10 +257,10 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
     """
         Run one train epoch with SWA
     """
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    accs = AverageMeter()
+    batch_time = util.AverageMeter()
+    data_time = util.AverageMeter()
+    losses = util.AverageMeter()
+    accs = util.AverageMeter()
 
     # switch to train mode
     model.train()
@@ -289,7 +289,7 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
         output = output.float()
         loss = loss.float()
         # measure accuracy and record loss
-        acc = accuracy(output.data, target)[0]
+        acc = util.accuracy(output.data, target)[0]
         losses.update(loss.item(), input.size(0))
         accs.update(acc.item(), input.size(0))
 
@@ -315,58 +315,6 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
 
 
 
-def validate(val_loader, test_loader, model, criterion):
-    """
-    Run evaluation
-    """
-    batch_time = AverageMeter()
-    nlls = AverageMeter()
-    cnlls = AverageMeter()
-    accs = AverageMeter()
-    eces = AverageMeter()
-    # switch to evaluate mode
-    end = time.time()
-    model.eval()
-    temperature_scaler = util.tune_temperature(model, val_loader)
-    with torch.no_grad():
-        for i, (input, target) in enumerate(test_loader):
-            target = target.cuda()
-            input_var = input.cuda()
-            target_var = target.cuda()
-
-            if args.half:
-                input_var = input_var.half()
-
-            # compute output
-            ece_criterion = util._ECELoss(15).cuda()
-
-            logit = model(input_var)
-            nll = criterion(logit, target_var)
-            log_prob = F.log_softmax(logit)
-            cnll = criterion(temperature_scaler(log_prob), target_var)
-
-            ece = ece_criterion(logit, target_var)
-            logit = logit.float()
-            nll = nll.float()
-            cnll = cnll.float()
-            ece = ece.float()
-            # measure accuracy and record loss
-            acc = accuracy(logit.data, target)[0]
-            nlls.update(nll.item(), input.size(0))
-            cnlls.update(cnll.item(), input.size(0))
-            accs.update(acc.item(), input.size(0))
-            eces.update(ece.item(), input.size(0))
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-    print(' * ACC {acc.avg:.3f}\t'
-          'NLL {nll.avg:.4f}\t'
-          'cNLL {cnll.avg:.4f}\t'
-          'ECE {ece.avg:.3f}'
-          .format(acc=accs, nll=nlls, cnll=cnlls, ece=eces))
-
-    return accs.avg
 
 
 def save_checkpoint(state, filename='checkpoint.pth.tar'):
@@ -374,44 +322,6 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
     Save the training model
     """
     torch.save(state, filename)
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    # output: [batch_size, num_class]
-    # target: [batch_size]
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    # pred: [batch_size, maxk]
-    pred = pred.t()
-    # pred: [maxk, batch_size]
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-    # target.view(1, -1).expand_as(pred): [maxk(target이 여럿 복사된 부분), batch_size]
-    # correct: [maxk, batch_size]
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
 
 def update_batchnorm(swa_model, train_loader):
     swa_model.train()
