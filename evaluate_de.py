@@ -34,6 +34,8 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
 parser.add_argument('--save-dir', dest='save_dir',
                     help='The directory used to save the trained models',
                     default='checkpoints/de', type=str)
+parser.add_argument('--half', dest='half', action='store_true',
+                    help='use half-precision(16-bit) ')
 
 def main():
     global args, best_acc
