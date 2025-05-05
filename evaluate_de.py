@@ -54,7 +54,6 @@ def main():
         model.load_state_dict(torch.load(f'{args.save_dir}/{filename}.th')['state_dict'])
         model.eval()
         models.append(model)
-    model = util.Ensemble(models).cuda()
     
 
     cudnn.benchmark = True
@@ -99,7 +98,13 @@ def main():
     criterion = nn.CrossEntropyLoss().cuda()
     
     # temperature scaling
-    validate(val_loader, test_loader, model, criterion)
+    de_models = [util.Ensemble(models[:i+1]).cuda() for i in range(10)]
+    print("------ DE --------")
+    for de_model in de_models:
+        validate(val_loader, test_loader, de_model, criterion)
+    print("------ Individual models --------")
+    for model in models:
+        validate(val_loader, test_loader, model, criterion)
 
 
 
