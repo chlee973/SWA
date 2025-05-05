@@ -118,7 +118,7 @@ def predict_with_temperature(model, temperature_scaler, inputs, device='cuda'):
     with torch.no_grad():
         inputs = inputs.to(device)
         logits = model(inputs)
-        log_probs = F.log_softmax(logits)
+        log_probs = F.log_softmax(logits, dim=1)
         scaled_logits = temperature_scaler(log_probs)
         probs = F.softmax(scaled_logits, dim=1)
     return probs
@@ -149,7 +149,7 @@ def validate(val_loader, test_loader, model, criterion):
 
             logit = model(input_var)
             nll = criterion(logit, target_var)
-            log_prob = F.log_softmax(logit)
+            log_prob = F.log_softmax(logit, dim=1)
             cnll = criterion(temperature_scaler(log_prob), target_var)
 
             ece = ece_criterion(logit, target_var)
