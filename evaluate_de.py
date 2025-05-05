@@ -49,7 +49,7 @@ def main():
         model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
         model.cuda()
         filename = f"model_0{i}"
-        model.load_state_dict(torch.load(f'deep_ensemble/{filename}.th')['state_dict'])
+        model.load_state_dict(torch.load(f'{args.save_dir}/{filename}.th')['state_dict'])
         model.eval()
         models.append(model)
     model = util.Ensemble(models).cuda()
