@@ -6,6 +6,7 @@ import copy
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
@@ -341,7 +342,8 @@ def validate(val_loader, test_loader, model, criterion):
 
             logit = model(input_var)
             nll = criterion(logit, target_var)
-            cnll = criterion(temperature_scaler(logit), target_var)
+            log_prob = F.log_softmax(logit)
+            cnll = criterion(temperature_scaler(log_prob), target_var)
 
             ece = ece_criterion(logit, target_var)
             logit = logit.float()

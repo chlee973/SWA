@@ -8,6 +8,29 @@ import torch.nn as nn
 import torch.optim
 import torch.nn.functional as F
 
+class Ensemble(nn.Module):
+    def __init__(self, models):
+        super().__init__()
+        self.models = nn.ModuleList(models)
+
+    def forward(self, input):
+        # Stack logits from each model: shape (M, B, C)
+        logits = torch.stack([model(input) for model in self.models], dim=0)
+
+        # Log softmax per model
+        log_probs = F.log_softmax(logits, dim=2)  # shape (M, B, C)
+
+        # Log of average probability
+        ensemble_log_prob = torch.logsumexp(log_probs, dim=0) - torch.log(torch.tensor(len(self.models), dtype=logits.dtype, device=logits.device))
+        return ensemble_log_prob  # shape (B, C)
+
+    # Produce log prob (log softmax)
+    def forward(self, input):
+        logits = torch.stack([model(input) for model in self.models])
+        log_probs = torch.log_softmax(logits, dim=2)
+        ensemble_log_prob = torch.logsumexp(log_probs, dim=0)-torch.log(len(self.models))
+        return ensemble_log_prob
+    
 class _ECELoss(nn.Module):
     """
     Calculates the Expected Calibration Error of a model.
@@ -59,14 +82,14 @@ class TemperatureScaler(nn.Module):
         super().__init__()
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
 
-    def forward(self, logits):
-        return logits / self.temperature
+    def forward(self, log_probs):
+        return log_probs / self.temperature
 
 def tune_temperature(model, valid_loader, device='cuda'):
     model.eval()
     temperature_scaler = TemperatureScaler().to(device)
 
-    logits_list = []
+    log_probs_list = []
     labels_list = []
 
     # 모든 validation 데이터를 logits, labels로 수집
@@ -75,11 +98,11 @@ def tune_temperature(model, valid_loader, device='cuda'):
             inputs = inputs.to(device)
             labels = labels.to(device)
 
-            logits = model(inputs)
-            logits_list.append(logits)
+            log_probs = model(inputs)
+            log_probs_list.append(log_probs)
             labels_list.append(labels)
 
-    logits = torch.cat(logits_list)
+    log_probs = torch.cat(log_probs_list)
     labels = torch.cat(labels_list)
 
     # optimizer 설정 (LBFGS가 temperature 하나 튜닝할 때 적절)
@@ -87,8 +110,8 @@ def tune_temperature(model, valid_loader, device='cuda'):
 
     def eval():
         optimizer.zero_grad()
-        scaled_logits = temperature_scaler(logits)
-        loss = F.cross_entropy(scaled_logits, labels)
+        scaled_log_probs = temperature_scaler(log_probs)
+        loss = F.cross_entropy(scaled_log_probs, labels)
         loss.backward()
         return loss
 
@@ -102,6 +125,7 @@ def predict_with_temperature(model, temperature_scaler, inputs, device='cuda'):
     with torch.no_grad():
         inputs = inputs.to(device)
         logits = model(inputs)
-        scaled_logits = temperature_scaler(logits)
+        log_probs = F.log_softmax(logits)
+        scaled_logits = temperature_scaler(log_probs)
         probs = F.softmax(scaled_logits, dim=1)
     return probs
