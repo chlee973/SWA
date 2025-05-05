@@ -192,12 +192,12 @@ def main():
                 'epoch': epoch + 1,
                 'state_dict': swa_model.state_dict(),
                 'best_acc': best_acc,
-            }, filename=os.path.join(args.save_dir, f'swa_model_{epoch+1}.th'))
+            }, filename=os.path.join(args.save_dir, f'swa_model_lr{args.lr:.0e}_{epoch+1}.th'))
 
-        save_checkpoint({
-            'state_dict': swa_model.state_dict(),
-            'best_acc': best_acc,
-        }, filename=os.path.join(args.save_dir, 'swa_model.th'))
+    save_checkpoint({
+        'state_dict': swa_model.state_dict(),
+        'best_acc': best_acc,
+    }, filename=os.path.join(args.save_dir, f'swa_model_lr{args.lr:.0e}.th'))
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
