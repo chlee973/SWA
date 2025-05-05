@@ -46,7 +46,7 @@ def main():
         return
     models = []
     for i in range(10):
-        model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
+        model = resnet.__dict__[args.arch]()
         model.cuda()
         filename = f"model_0{i}"
         model.load_state_dict(torch.load(f'{args.save_dir}/{filename}.th')['state_dict'])
