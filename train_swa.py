@@ -37,7 +37,7 @@ parser.add_argument('--exploring_epochs', default=150, type=int, metavar='N',
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--weight_avg_period', default=5, type=int, metavar='N',
-                    help='compute running average of weights for every "weight_avg_period" iterations')
+                    help='compute running average of weights for every "weight_avg_period" epochs')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
@@ -306,15 +306,16 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, acc=accs))
             
-        start_iter = epoch * len(train_loader) + 1
-        n_models = (start_iter+i) // args.weight_avg_period + 1
-        if (start_iter + i)%args.weight_avg_period==0:
-            for swa_param, param in zip(swa_model.parameters(), model.parameters()):
-                swa_param.data *= (n_models-1) / n_models
-                swa_param.data += param.data / n_models
+    if (epoch + 1) % args.weight_avg_period:
+        swa_n = (epoch + 1) // args.weight_avg_period
+        moving_average(swa_model, model, 1.0 / (swa_n + 1))
 
 
-
+def moving_average(net1, net2, alpha=1):
+    for param1, param2 in zip(net1.parameters(), net2.parameters()):
+        param1.data *= (1.0 - alpha)
+        param1.data += param2.data * alpha
+    
 
 
 def save_checkpoint(state, filename='checkpoint.pth.tar'):
