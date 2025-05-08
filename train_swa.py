@@ -324,8 +324,14 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
     """
     torch.save(state, filename)
 
+def reset_bn(module):
+    if issubclass(module.__class__, torch.nn.modules.batchnorm._BatchNorm):
+        module.running_mean = torch.zeros_like(module.running_mean)
+        module.running_var = torch.ones_like(module.running_var)
+
 def update_batchnorm(swa_model, train_loader):
     swa_model.train()
+    swa_model.apply(reset_bn)
     with torch.no_grad():
         for i, (input, _) in enumerate(train_loader):
             _ = swa_model(input)
