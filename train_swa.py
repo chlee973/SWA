@@ -306,7 +306,7 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, acc=accs))
             
-    if (epoch + 1) % args.weight_avg_period:
+    if (epoch + 1) % args.weight_avg_period == 0:
         swa_n = (epoch + 1) // args.weight_avg_period
         moving_average(swa_model, model, 1.0 / (swa_n + 1))
 
