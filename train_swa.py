@@ -180,6 +180,7 @@ def main():
                                     weight_decay=args.weight_decay)
     
     swa_model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
+    swa_model.cuda()
 
     for epoch in range(args.exploring_epochs):
         train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
