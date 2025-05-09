@@ -179,7 +179,7 @@ def main():
                                     momentum=0,
                                     weight_decay=args.weight_decay)
     
-    swa_model = copy.deepcopy(model)
+    swa_model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
 
     for epoch in range(args.exploring_epochs):
         train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
@@ -309,7 +309,7 @@ def train_swa(train_loader, model, swa_model, criterion, optimizer, epoch):
             
     if (epoch + 1) % args.weight_avg_period == 0:
         swa_n = (epoch + 1) // args.weight_avg_period
-        moving_average(swa_model, model, 1.0 / (swa_n + 1))
+        moving_average(swa_model, model, 1.0 / swa_n )
 
 
 def moving_average(net1, net2, alpha=1):
