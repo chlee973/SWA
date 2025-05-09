@@ -183,8 +183,8 @@ def main():
 
     for epoch in range(args.exploring_epochs):
         train_swa(train_loader, model, swa_model, criterion, swa_optimizer, epoch)
-        # update_batchnorm(swa_model, train_loader)
-        bn_update(train_loader, swa_model)
+        update_batchnorm(swa_model, train_loader)
+        # bn_update(train_loader, swa_model)
         acc_model = util.validate(val_loader, test_loader, model, criterion)
         acc = util.validate(val_loader, test_loader, swa_model, criterion)
         best_acc= max(acc, best_acc)
