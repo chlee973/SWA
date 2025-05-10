@@ -176,7 +176,7 @@ def main():
     
 
     swa_optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                    momentum=0,
+                                    momentum=args.momentum,
                                     weight_decay=args.weight_decay)
     
     swa_model = torch.nn.DataParallel(resnet.__dict__[args.arch]())
